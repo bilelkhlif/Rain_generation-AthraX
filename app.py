@@ -138,6 +138,7 @@ _DEFAULTS: Dict[str, Any] = {
     "n_ray_steps":       64,
     "rho_refresh_rate":  0.10,
     "depth_source":      "Auto (MiDaS)",
+    "use_manual_params": True,
     "run_done":          False,
     "output_dir":        None,
     "log_lines":         [],
@@ -320,6 +321,7 @@ def run_pipeline(
     width: int,
     height: int,
     params: Dict[str, Any],
+    use_manual_params: bool,
     depth_source: str,
     seed: int,
     n_ray_steps: int,
@@ -371,14 +373,21 @@ def run_pipeline(
     status.text(f"Applying sand/dust degradation model ({_device_label})...")
     _log(f"[degradation] Using {_device_label} for physics degradation.")
 
+    # Pass manual params when checkbox is on, otherwise let pipeline sample randomly
+    manual_params_arg = params if use_manual_params else None
+    if use_manual_params:
+        _log(f"[params] Manual mode — using exact slider values (β₀={params.get('beta_0', '?'):.4f})")
+    else:
+        _log("[params] Dataset mode — random parameters sampled from paper ranges")
+
     metadata = degrade_video(
         clean_frames     = clean_frames,
         depth_frames     = depth_frames,
         output_dir       = str(output_dir),
         sequence_seed    = seed,
+        params           = manual_params_arg,
         n_ray_steps      = n_ray_steps,
         n_blur_levels    = 16,
-        rho_refresh_rate = params.get("rho_refresh_rate", 0.1),
         use_gpu          = _gpu_available,
     )
     _log(f"[degrade] {n_frames} frames degraded. Output: {output_dir}")
@@ -592,6 +601,26 @@ def _render_sidebar() -> None:
             "Results are not physically accurate."
         )
 
+    # ── Parameter mode ──────────────────────────────────────────────────────
+    sb.markdown("### Parameter Control")
+
+    sb.checkbox(
+        "Use manual parameters",
+        value=True,
+        key="use_manual_params",
+        help=(
+            "When checked, uses the exact slider values above (manual mode).  "
+            "Uncheck for random parameter sampling from paper ranges "
+            "(dataset generation mode with sequence-level variation)."
+        ),
+    )
+
+    if st.session_state["use_manual_params"]:
+        sb.success("✓ Using exact slider values")
+    else:
+        sb.info("⚙ Random sampling mode (for datasets)")
+
+
 # =========================================================================== #
 #  OUTPUT SECTION
 # =========================================================================== #
@@ -608,6 +637,22 @@ def _render_output(output_dir: Path, metadata: Dict[str, Any]) -> None:
     """
     st.markdown("---")
     st.markdown("## Results")
+
+    # ── Parameter mode notice ────────────────────────────────────────────────
+    if st.session_state.get("use_manual_params", True):
+        _b0 = metadata.get("parameters", {}).get("beta_0", st.session_state.get("beta_0", "?"))
+        _b0_str = f"{_b0:.4f}" if isinstance(_b0, float) else str(_b0)
+        st.info(
+            f"**Manual parameter mode** — output used the exact slider values. "
+            f"β₀ = {_b0_str} m⁻¹",
+            icon="✅",
+        )
+    else:
+        st.info(
+            "**Dataset mode** — output used randomly sampled parameters from paper ranges. "
+            "Enable **Use manual parameters** in the sidebar to control the effect precisely.",
+            icon="⚙️",
+        )
 
     # ── Frame comparison ────────────────────────────────────────────────────
     clean_pngs    = sorted((output_dir / "clean_rgb").glob("frame_*.png"))
@@ -832,15 +877,16 @@ def main() -> None:
         params     = _build_params()
 
         metadata = run_pipeline(
-            frames_uint8 = frames,
-            fps          = fps,
-            width        = W,
-            height       = H,
-            params       = params,
-            depth_source = st.session_state["depth_source"],
-            seed         = int(st.session_state["sequence_seed"]),
-            n_ray_steps  = int(st.session_state["n_ray_steps"]),
-            output_dir   = output_dir,
+            frames_uint8      = frames,
+            fps               = fps,
+            width             = W,
+            height            = H,
+            params            = params,
+            use_manual_params = st.session_state["use_manual_params"],
+            depth_source      = st.session_state["depth_source"],
+            seed              = int(st.session_state["sequence_seed"]),
+            n_ray_steps       = int(st.session_state["n_ray_steps"]),
+            output_dir        = output_dir,
         )
 
         st.session_state["run_done"]    = True

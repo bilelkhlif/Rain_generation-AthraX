@@ -1090,6 +1090,7 @@ def degrade_video(
     depth_frames: list,
     output_dir: str,
     sequence_seed: int = 42,
+    params: Optional[Dict[str, Any]] = None,
     n_ray_steps: int = 64,
     n_blur_levels: int = 16,
     density_refresh: float = 0.1,
@@ -1116,6 +1117,9 @@ def degrade_video(
     depth_frames     : list of ``(H, W)`` float32 depth maps in metres
     output_dir       : root folder for all outputs
     sequence_seed    : master RNG seed for full reproducibility
+    params           : optional dict of degradation parameters; if provided,
+                       uses exact slider values (manual mode); if ``None``,
+                       samples random parameters from paper ranges (dataset mode)
     n_ray_steps      : number of ray-marching integration steps per pixel
     n_blur_levels    : Gaussian pyramid levels for the depth-varying PSF blur
     density_refresh  : deprecated alias for ``rho_refresh_rate``
@@ -1134,8 +1138,16 @@ def degrade_video(
 
     rng = np.random.default_rng(sequence_seed)
 
-    # Sample one parameter set for the full sequence (scene-level consistency)
-    params = sample_parameters(rng)
+    # Sample or use provided parameters
+    if params is None:
+        # Automatic mode: sample random parameters for dataset generation
+        params = sample_parameters(rng)
+        print("[degradation] Using randomly sampled parameters (dataset mode).")
+    else:
+        # Manual mode: use exact GUI slider values
+        # Ensure all required keys exist with defaults if needed
+        params = dict(params)  # Make a copy to avoid mutating caller's dict
+        print("[degradation] Using manual parameters from GUI sliders.")
 
     # Resolve rho_refresh_rate: explicit argument wins over sampled value,
     # which wins over the legacy density_refresh alias.
