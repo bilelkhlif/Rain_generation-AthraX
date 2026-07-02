@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Raw physical maps (large binary, recoverable from pipeline)
+*.npy
+
+# Generated videos and archives
+*.mp4
+*.avi
+*.mov
+*.zip
+*.gif
+
+# Pipeline outputs
+output_*/
+
+# MiDaS model weights (large; downloaded automatically on first run)
+midas_model/
+
+# Development artifacts
+validation_comparison.png
+temporal_coherence.gif
+gif_frames/
+
+# IDE and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Secrets / environment
+.env
+*.env
+
+# PDFs kept only locally
+*.pdf
+db.txt
